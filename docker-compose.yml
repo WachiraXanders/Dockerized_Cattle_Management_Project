@@ -1,0 +1,55 @@
+services:
+  backend:
+    build: ./backend
+    container_name: dairypro-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      # Overrides whatever DAIRYPRO_DB_PATH is set to in .env — SQLite file
+      # lives inside the mounted "dairypro_data" volume so it survives
+      # container recreation. Ignored entirely if DATABASE_URL is set
+      # in backend/.env (e.g. to point at the optional postgres service
+      # below, or any external database).
+      - DAIRYPRO_DB_PATH=/app/data/dairypro.db
+    volumes:
+      - dairypro_data:/app/data
+      - dairypro_var:/app/var
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Must be reachable from the *browser*, not just from inside Docker —
+        # http://backend:8000 will NOT work here. Use the backend's public
+        # URL (see docs/DOCKER_DEPLOYMENT.md).
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    container_name: dairypro-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  # Optional: uncomment to run Postgres instead of the default SQLite file,
+  # then set DATABASE_URL=postgresql://dairypro:dairypro@postgres:5432/dairypro
+  # in backend/.env. See docs/DOCKER_DEPLOYMENT.md for the full walkthrough.
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: dairypro-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: dairypro
+  #     POSTGRES_PASSWORD: dairypro
+  #     POSTGRES_DB: dairypro
+  #   volumes:
+  #     - dairypro_postgres:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+volumes:
+  dairypro_data:
+  dairypro_var:
+  # dairypro_postgres:
